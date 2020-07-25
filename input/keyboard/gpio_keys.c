@@ -689,7 +689,7 @@ static int gpio_keys_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	const struct gpio_keys_platform_data *pdata = dev_get_platdata(dev);//使用dev_get_platdata获取平台设备
-	struct gpio_keys_drvdata *ddata;//51行，有*pdata,input_dev结构体，struct mutex互斥锁，struct gpio_button_data
+	struct gpio_keys_drvdata *ddata;//51行，设备结构体，有*pdata,input_dev结构体，struct mutex互斥锁，struct gpio_button_data
 	struct input_dev *input;
 	size_t size;
 	int i, error;

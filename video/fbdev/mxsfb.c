@@ -63,7 +63,7 @@
 
 #define REG_SET	4
 #define REG_CLR	8
-
+//elcdif寄存器偏移地址
 #define LCDC_CTRL			0x00
 #define LCDC_CTRL1			0x10
 #define LCDC_V4_CTRL2			0x20
@@ -201,7 +201,7 @@ struct mxsfb_devdata {
 struct mxsfb_info {
 	struct fb_info *fb_info;
 	struct platform_device *pdev;
-	struct clk *clk_pix;
+	struct clk *clk_pix;//pix时钟，在设备树节点中有相关配置
 	struct clk *clk_axi;
 	struct clk *clk_disp_axi;
 	bool clk_pix_enabled;
@@ -213,7 +213,7 @@ struct mxsfb_info {
 	int enabled;
 	unsigned ld_intf_width;
 	unsigned dotclk_delay;
-	const struct mxsfb_devdata *devdata;
+	const struct mxsfb_devdata *devdata;//191,
 	struct regulator *reg_lcd;
 	bool wait4vsync;
 	struct completion vsync_complete;
@@ -223,7 +223,7 @@ struct mxsfb_info {
 	char disp_dev[32];
 	struct mxc_dispdrv_handle *dispdrv;
 	int id;
-	struct fb_var_screeninfo var;
+	struct fb_var_screeninfo var;//屏幕参数，如分辨率，位宽
 };
 
 #define mxsfb_is_v3(host) (host->devdata->ipversion == 3)
@@ -397,7 +397,7 @@ static inline unsigned chan_to_field(unsigned chan, struct fb_bitfield *bf)
 
 static irqreturn_t mxsfb_irq_handler(int irq, void *dev_id)
 {
-	struct mxsfb_info *host = dev_id;
+	struct mxsfb_info *host = dev_id;//中断处理函数的第二个参数传递给设备结构体
 	u32 ctrl1, enable, status, acked_status;
 
 	ctrl1 = readl(host->base + LCDC_CTRL1);
@@ -432,7 +432,7 @@ static irqreturn_t mxsfb_irq_handler(int irq, void *dev_id)
 }
 
 static int mxsfb_check_var(struct fb_var_screeninfo *var,
-		struct fb_info *fb_info)
+		struct fb_info *fb_info)//初始化颜色字段
 {
 	struct mxsfb_info *host = fb_info->par;
 	const struct fb_bitfield *rgb = NULL;
@@ -453,7 +453,7 @@ static int mxsfb_check_var(struct fb_var_screeninfo *var,
 		var->yres_virtual = var->yres;
 
 	if ((var->bits_per_pixel != 32) && (var->bits_per_pixel != 16))
-		var->bits_per_pixel = 32;
+		var->bits_per_pixel = 32;//24位也是这个选项
 
 	switch (var->bits_per_pixel) {
 	case 16:
@@ -984,7 +984,7 @@ static int mxsfb_mmap(struct fb_info *info, struct vm_area_struct *vma)
 	return 0;
 }
 
-static struct fb_ops mxsfb_ops = {
+static struct fb_ops mxsfb_ops = {//fb的file_operations结构体
 	.owner = THIS_MODULE,
 	.fb_check_var = mxsfb_check_var,
 	.fb_set_par = mxsfb_set_par,
@@ -1103,7 +1103,7 @@ static int mxsfb_restore_mode(struct mxsfb_info *host)
 }
 
 static int mxsfb_init_fbinfo_dt(struct mxsfb_info *host)
-{
+{//从设备树中获取可变参数
 	struct fb_info *fb_info = host->fb_info;
 	struct fb_var_screeninfo *var = &fb_info->var;
 	struct device *dev = &host->pdev->dev;
@@ -1116,15 +1116,15 @@ static int mxsfb_init_fbinfo_dt(struct mxsfb_info *host)
 	int i;
 	int ret = 0;
 
-	host->id = of_alias_get_id(np, "lcdif");
+	host->id = of_alias_get_id(np, "lcdif");//找到lcdif节点在alias中对应的编号
 
-	display_np = of_parse_phandle(np, "display", 0);
+	display_np = of_parse_phandle(np, "display", 0);//获取display0节点
 	if (!display_np) {
 		dev_err(dev, "failed to find display phandle\n");
 		return -ENOENT;
 	}
 
-	ret = of_property_read_u32(display_np, "bus-width", &width);
+	ret = of_property_read_u32(display_np, "bus-width", &width);//读取“bus-width”属性值，存放到&width中
 	if (ret < 0) {
 		dev_err(dev, "failed to get property bus-width\n");
 		goto put_display_node;
@@ -1163,7 +1163,7 @@ static int mxsfb_init_fbinfo_dt(struct mxsfb_info *host)
 		goto put_display_node;
 	}
 
-	timings = of_get_display_timings(display_np);
+	timings = of_get_display_timings(display_np);//获取时序参数，dts中可以配置多组，这里会循环读取
 	if (!timings) {
 		dev_err(dev, "failed to get display timings\n");
 		ret = -ENOENT;
@@ -1171,16 +1171,16 @@ static int mxsfb_init_fbinfo_dt(struct mxsfb_info *host)
 	}
 
 	timings_np = of_find_node_by_name(display_np,
-					  "display-timings");
+					  "display-timings");//查找display-timings节点
 	if (!timings_np) {
 		dev_err(dev, "failed to find display-timings node\n");
 		ret = -ENOENT;
 		goto put_display_node;
 	}
 
-	for (i = 0; i < of_get_child_count(timings_np); i++) {
-		struct videomode vm;
-		struct fb_videomode fb_vm;
+	for (i = 0; i < of_get_child_count(timings_np); i++) {//遍历display-timings下的子节点，设置可变参数
+		struct videomode vm;//可变参数结构体
+		struct fb_videomode fb_vm;//可变参数结构体
 
 		ret = videomode_from_timings(timings, &vm, i);
 		if (ret < 0)
@@ -1206,13 +1206,13 @@ put_display_node:
 }
 
 static int mxsfb_init_fbinfo(struct mxsfb_info *host)
-{
+{//初始化fb_info,重点是var，fix,fbops，screen_base 和 screen_size。  
 	struct fb_info *fb_info = host->fb_info;
 	struct fb_var_screeninfo *var = &fb_info->var;
-	struct fb_modelist *modelist;
+	struct fb_modelist *modelist;//fb链表
 	int ret;
 
-	fb_info->fbops = &mxsfb_ops;
+	fb_info->fbops = &mxsfb_ops;//987,
 	fb_info->flags = FBINFO_FLAG_DEFAULT | FBINFO_READS_FAST;
 	fb_info->fix.type = FB_TYPE_PACKED_PIXELS;
 	fb_info->fix.ypanstep = 1;
@@ -1220,12 +1220,12 @@ static int mxsfb_init_fbinfo(struct mxsfb_info *host)
 	fb_info->fix.visual = FB_VISUAL_TRUECOLOR,
 	fb_info->fix.accel = FB_ACCEL_NONE;
 
-	ret = mxsfb_init_fbinfo_dt(host);
+	ret = mxsfb_init_fbinfo_dt(host);//1105,从设备树中获取可变参数
 	if (ret)
 		return ret;
 
 	if (host->id < 0)
-		sprintf(fb_info->fix.id, "mxs-lcdif");
+		sprintf(fb_info->fix.id, "mxs-lcdif");//我们的alias中没有，所以只有id<0
 	else
 		sprintf(fb_info->fix.id, "mxs-lcdif%d", host->id);
 
@@ -1243,21 +1243,21 @@ static int mxsfb_init_fbinfo(struct mxsfb_info *host)
 	var->accel_flags = 0;
 	var->vmode = FB_VMODE_NONINTERLACED;
 
-	/* init the color fields */
-	mxsfb_check_var(var, fb_info);
+	/* init the color fields 初始化颜色字段，即rgb*/
+	mxsfb_check_var(var, fb_info);//434,初始化颜色字段，即rgb
 
 	fb_info->fix.line_length =
-		fb_info->var.xres * (fb_info->var.bits_per_pixel >> 3);
+		fb_info->var.xres * (fb_info->var.bits_per_pixel >> 3);//初始化一行上的像素占有的空间
     if (of_machine_is_compatible("myzr,myimx6cb140"))
         fb_info->fix.smem_len = SZ_16M;
     else
-        fb_info->fix.smem_len = SZ_32M;
+        fb_info->fix.smem_len = SZ_32M;///dev/fb0帧缓冲内存大小
 
-	/* Memory allocation for framebuffer */
-	if (mxsfb_map_videomem(fb_info) < 0)
+	/* Memory allocation for framebuffer 帧缓冲区内存分配*/
+	if (mxsfb_map_videomem(fb_info) < 0)//1307,为帧缓冲区分配DRAM内存
 		return -ENOMEM;
 
-	if (mxsfb_restore_mode(host))
+	if (mxsfb_restore_mode(host))//1001,初始化屏幕参数？？？
 		memset((char *)fb_info->screen_base, 0, fb_info->fix.smem_len);
 
 	return 0;
@@ -1305,15 +1305,15 @@ static void mxsfb_free_videomem(struct mxsfb_info *host)
  * @return      Error code indicating success or failure
  */
 static int mxsfb_map_videomem(struct fb_info *fbi)
-{
+{//为帧缓冲区分配DRAM内存
 	if (fbi->fix.smem_len < fbi->var.yres_virtual * fbi->fix.line_length)
 		fbi->fix.smem_len = fbi->var.yres_virtual *
-				    fbi->fix.line_length;
+				    fbi->fix.line_length;//分配显存大小
 
 	fbi->screen_base = dma_alloc_writecombine(fbi->device,
 				fbi->fix.smem_len,
 				(dma_addr_t *)&fbi->fix.smem_start,
-				GFP_DMA | GFP_KERNEL);
+				GFP_DMA | GFP_KERNEL);//分配显存基地址
 	if (fbi->screen_base == 0) {
 		dev_err(fbi->device, "Unable to allocate framebuffer memory\n");
 		fbi->fix.smem_len = 0;
@@ -1324,7 +1324,7 @@ static int mxsfb_map_videomem(struct fb_info *fbi)
 	dev_dbg(fbi->device, "allocated fb @ paddr=0x%08X, size=%d.\n",
 		(uint32_t) fbi->fix.smem_start, fbi->fix.smem_len);
 
-	fbi->screen_size = fbi->fix.smem_len;
+	fbi->screen_size = fbi->fix.smem_len;//将可变参数中的显存大小赋值给fb_info中的显存大小，即初始化
 
 	/* Clear the screen */
 	memset((char *)fbi->screen_base, 0, fbi->fix.smem_len);
@@ -1372,52 +1372,52 @@ MODULE_DEVICE_TABLE(of, mxsfb_dt_ids);
 static int mxsfb_probe(struct platform_device *pdev)
 {
 	const struct of_device_id *of_id =
-			of_match_device(mxsfb_dt_ids, &pdev->dev);
-	struct resource *res;
-	struct mxsfb_info *host;
+			of_match_device(mxsfb_dt_ids, &pdev->dev);//匹配设备节点compatible相当于of_match_ptr
+	struct resource *res;//用于存放虚拟地址
+	struct mxsfb_info *host;//设备结构体，包括时钟，elcdif，fb_info等
 	struct fb_info *fb_info;
 	struct pinctrl *pinctrl;
-	int irq = platform_get_irq(pdev, 0);
+	int irq = platform_get_irq(pdev, 0);//从设备树中获取中断号
 	int gpio, ret;
 
 	if (of_id)
 		pdev->id_entry = of_id->data;
 
-	gpio = of_get_named_gpio(pdev->dev.of_node, "enable-gpio", 0);
+	gpio = of_get_named_gpio(pdev->dev.of_node, "enable-gpio", 0);//从enable-gpio属性获取gpio编号
 	if (gpio == -EPROBE_DEFER)
 		return -EPROBE_DEFER;
 
 	if (gpio_is_valid(gpio)) {
-		ret = devm_gpio_request_one(&pdev->dev, gpio, GPIOF_OUT_INIT_LOW, "lcd_pwr_en");
+		ret = devm_gpio_request_one(&pdev->dev, gpio, GPIOF_OUT_INIT_LOW, "lcd_pwr_en");//申请一个gpio管脚，"lcd_pwr_en"为label名称
 		if (ret) {
 			dev_err(&pdev->dev, "faild to request gpio %d, ret = %d\n", gpio, ret);
 			return ret;
 		}
 	}
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);//从设备树中获取elcdif寄存器首地址(0x21c8000)
 	if (!res) {
 		dev_err(&pdev->dev, "Cannot get memory IO resource\n");
 		return -ENODEV;
 	}
 
-	host = devm_kzalloc(&pdev->dev, sizeof(struct mxsfb_info), GFP_KERNEL);
+	host = devm_kzalloc(&pdev->dev, sizeof(struct mxsfb_info), GFP_KERNEL);//申请内存
 	if (!host) {
 		dev_err(&pdev->dev, "Failed to allocate IO resource\n");
 		return -ENOMEM;
 	}
 
-	fb_info = framebuffer_alloc(sizeof(struct fb_info), &pdev->dev);
+	fb_info = framebuffer_alloc(sizeof(struct fb_info), &pdev->dev);//向内核申请一段大小为sizeof(struct fb_info) + size的空间
 	if (!fb_info) {
 		dev_err(&pdev->dev, "Failed to allocate fbdev\n");
 		devm_kfree(&pdev->dev, host);
 		return -ENOMEM;
 	}
 	host->fb_info = fb_info;
-	fb_info->par = host;
+	fb_info->par = host;//???
 
 	ret = devm_request_irq(&pdev->dev, irq, mxsfb_irq_handler, 0,
-			  dev_name(&pdev->dev), host);
+			  dev_name(&pdev->dev), host);//申请中断
 	if (ret) {
 		dev_err(&pdev->dev, "request_irq (%d) failed with error %d\n",
 				irq, ret);
@@ -1425,7 +1425,7 @@ static int mxsfb_probe(struct platform_device *pdev)
 		goto fb_release;
 	}
 
-	host->base = devm_ioremap_resource(&pdev->dev, res);
+	host->base = devm_ioremap_resource(&pdev->dev, res);//内存映射得到虚拟地址并保存在base成员中
 	if (IS_ERR(host->base)) {
 		dev_err(&pdev->dev, "ioremap failed\n");
 		ret = PTR_ERR(host->base);
@@ -1433,51 +1433,51 @@ static int mxsfb_probe(struct platform_device *pdev)
 	}
 
 	host->pdev = pdev;
-	platform_set_drvdata(pdev, host);
+	platform_set_drvdata(pdev, host);//将设置保存到平台设备结构体中
 
 	host->devdata = &mxsfb_devdata[pdev->id_entry->driver_data];
 
-	host->clk_pix = devm_clk_get(&host->pdev->dev, "pix");
+	host->clk_pix = devm_clk_get(&host->pdev->dev, "pix");//从节点中获取pix时钟
 	if (IS_ERR(host->clk_pix)) {
 		host->clk_pix = NULL;
 		ret = PTR_ERR(host->clk_pix);
 		goto fb_release;
 	}
 
-	host->clk_axi = devm_clk_get(&host->pdev->dev, "axi");
+	host->clk_axi = devm_clk_get(&host->pdev->dev, "axi");//从节点中获取axi时钟
 	if (IS_ERR(host->clk_axi)) {
 		host->clk_axi = NULL;
 		ret = PTR_ERR(host->clk_axi);
 		goto fb_release;
 	}
 
-	host->clk_disp_axi = devm_clk_get(&host->pdev->dev, "disp_axi");
+	host->clk_disp_axi = devm_clk_get(&host->pdev->dev, "disp_axi");//从节点中获取disp_axi时钟
 	if (IS_ERR(host->clk_disp_axi)) {
 		host->clk_disp_axi = NULL;
 		ret = PTR_ERR(host->clk_disp_axi);
 		goto fb_release;
 	}
 
-	host->reg_lcd = devm_regulator_get(&pdev->dev, "lcd");
+	host->reg_lcd = devm_regulator_get(&pdev->dev, "lcd");//
 	if (IS_ERR(host->reg_lcd))
 		host->reg_lcd = NULL;
 
 	fb_info->pseudo_palette = devm_kzalloc(&pdev->dev, sizeof(u32) * 16,
-					       GFP_KERNEL);
+					       GFP_KERNEL);//分配伪16位调色板内存
 	if (!fb_info->pseudo_palette) {
 		ret = -ENOMEM;
 		goto fb_release;
 	}
 
-	INIT_LIST_HEAD(&fb_info->modelist);
+	INIT_LIST_HEAD(&fb_info->modelist);//初始化链表表
 
 	pm_runtime_enable(&host->pdev->dev);
 
-	ret = mxsfb_init_fbinfo(host);
+	ret = mxsfb_init_fbinfo(host);//1208，初始化fb_info
 	if (ret != 0)
 		goto fb_pm_runtime_disable;
 
-	mxsfb_dispdrv_init(pdev, fb_info);
+	mxsfb_dispdrv_init(pdev, fb_info);//1266,
 
 	if (!host->dispdrv) {
 		pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
@@ -1489,19 +1489,19 @@ static int mxsfb_probe(struct platform_device *pdev)
 
 	if (!host->enabled) {
 		writel(0, host->base + LCDC_CTRL);
-		mxsfb_set_par(fb_info);
-		mxsfb_enable_controller(fb_info);
+		mxsfb_set_par(fb_info);//640，设置elcdif控制器的相应寄存器
+		mxsfb_enable_controller(fb_info);//502,使能控制器
 		pm_runtime_get_sync(&host->pdev->dev);
 	}
 
-	ret = register_framebuffer(fb_info);
+	ret = register_framebuffer(fb_info);//注册初始化好的fb_info
 	if (ret != 0) {
 		dev_err(&pdev->dev, "Failed to register framebuffer\n");
 		goto fb_destroy;
 	}
 
-	console_lock();
-	ret = fb_blank(fb_info, FB_BLANK_UNBLANK);
+	console_lock();//此函数锁住控制台，则可独占使用控制台
+	ret = fb_blank(fb_info, FB_BLANK_UNBLANK);//？？
 	console_unlock();
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Failed to unblank framebuffer\n");
@@ -1628,12 +1628,12 @@ static const struct dev_pm_ops mxsfb_pm_ops = {
 static struct platform_driver mxsfb_driver = {
 	.probe = mxsfb_probe,
 	.remove = mxsfb_remove,
-	.shutdown = mxsfb_shutdown,
+	.shutdown = mxsfb_shutdown,//系统软关机后设备的电源状态
 	.id_table = mxsfb_devtype,
 	.driver = {
 		   .name = DRIVER_NAME,
 		   .of_match_table = mxsfb_dt_ids,
-		   .pm = &mxsfb_pm_ops,
+		   .pm = &mxsfb_pm_ops,//设备电源管理
 	},
 };
 
